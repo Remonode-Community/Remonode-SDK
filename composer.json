@@ -1,0 +1,53 @@
+{
+    "name": "remonode/laravel-sdk",
+    "description": "Laravel SDK for API key management and Remonode portal integration. Generate, validate, rotate, and revoke API keys locally with optional portal sync.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Remonode",
+            "email": "dev@remonode.ng"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Remonode\\SDK\\": "src/"
+        },
+        "classmap": [
+            "database/migrations"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Remonode\\SDK\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0|^12.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Remonode\\SDK\\RemonodeServiceProvider"
+            ],
+            "aliases": {
+                "Remonode": "Remonode\\SDK\\RemonodeFacade"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+    }
+}
