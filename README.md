@@ -27,7 +27,19 @@ Laravel SDK for API key management and Remonode portal integration. Generate, va
 
 ---
 
+## Requirements
+
+- PHP 8.1+
+- Laravel 10, 11, 12, or 13
+- A [Remonode](https://www.remonode.com) account (required for portal sync features)
+
+---
+
 ## Installation
+
+### Prerequisites
+
+Create an account at [www.remonode.com](https://www.remonode.com) before using the portal sync features. The email used in your app must match your Remonode account.
 
 ### 1. Require the package
 
@@ -74,10 +86,10 @@ REMONODE_CACHE_TTL=60
 
 ### 5. (Optional) Register your app with Remonode
 
-If you want Remonode to track your app's keys and billing:
+If you want Remonode to track your app's keys and billing, you must first have an account on [Remonode](https://www.remonode.com). Your email on Remonode must match the one used in your Laravel app.
 
 ```php
-use Remonode\SDK\Facades\Remonode;
+use Remonode\SDK\RemonodeFacade as Remonode;
 
 $result = Remonode::register(
     appName: 'My Laravel App',
@@ -109,7 +121,7 @@ Route::middleware(ValidateRemonodeApiKey::class)->group(function () {
 ### Generate keys for a user
 
 ```php
-use Remonode\SDK\Facades\Remonode;
+use Remonode\SDK\RemonodeFacade as Remonode;
 
 $result = Remonode::generate(
     userId: $user->id,
@@ -128,6 +140,9 @@ $result = Remonode::generate(
 ### Story 1: "Install and connect my app to Remonode"
 
 **As a developer, I want to install the package and connect my app.**
+
+1. Create an account at [www.remonode.com](https://www.remonode.com)
+2. Install the package:
 
 ```bash
 composer require remonode/laravel-sdk
@@ -148,6 +163,17 @@ Test the connection:
 php artisan remonode:test-connection
 ```
 
+Register your app (email must match your Remonode account):
+```php
+use Remonode\SDK\RemonodeFacade as Remonode;
+
+$result = Remonode::register(
+    appName: 'My Laravel App',
+    ownerEmail: 'your-email@example.com', // Must exist on www.remonode.com
+    ownerName: 'Your Name'
+);
+```
+
 ```
 Testing connection to Remonode portal...
   URL: https://remonode.ng
@@ -164,7 +190,7 @@ Connection successful!
 Keys are generated **entirely in your application**. No HTTP call to Remonode is required.
 
 ```php
-use Remonode\SDK\Facades\Remonode;
+use Remonode\SDK\RemonodeFacade as Remonode;
 
 // During user registration or subscription activation
 $result = Remonode::generate(
@@ -281,7 +307,7 @@ curl -X POST https://yourapp.com/api/v1/remonode/api-keys \
 **Rotate a compromised key:**
 
 ```php
-use Remonode\SDK\Facades\Remonode;
+use Remonode\SDK\RemonodeFacade as Remonode;
 
 $result = Remonode::rotate($keyId);
 // Old key is revoked, new key pair is generated
@@ -399,14 +425,14 @@ Only Remonode-specific features are disabled:
 | `sync_to_portal` | `REMONODE_SYNC_TO_PORTAL` | `true` | Auto-sync metadata to Remonode |
 | `enforcement` | `REMONODE_API_KEY_ENFORCEMENT` | `true` | Master middleware switch |
 | `webhook_secret` | `REMONODE_WEBHOOK_SECRET` | `''` | HMAC secret for webhook verification |
-| `user_model` | — | `App\Models\User` | Your User model class |
+| `user_model` | `REMONODE_USER_MODEL` | `App\Models\User` | Your User model class |
 
 ---
 
 ## Facade API
 
 ```php
-use Remonode\SDK\Facades\Remonode;
+use Remonode\SDK\RemonodeFacade as Remonode;
 
 // Generate keys locally
 $result = Remonode::generate($userId, $name, $expiresAt);
