@@ -140,6 +140,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Quota Enforcement
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the middleware checks the connected app's monthly API
+    | quota against the Remonode portal. Returns 429 when exceeded.
+    |
+    */
+    'quota_enforcement' => env('REMONODE_QUOTA_ENFORCEMENT', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Exempt URIs
     |--------------------------------------------------------------------------
     |

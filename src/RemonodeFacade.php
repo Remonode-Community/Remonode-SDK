@@ -15,9 +15,13 @@ use Illuminate\Support\Facades\Facade;
  * @method static bool hasActiveKeys(int $userId)
  * @method static bool canRevoke(\Remonode\SDK\Models\LocalApiKey $key)
  * @method static array register(string $appName, string $ownerEmail, ?string $ownerName = null)
+ * @method static array checkQuota()
+ * @method static array getPlans()
+ * @method static array upgradePlan(string $planCode)
  *
  * @see \Remonode\SDK\Services\ApiKeyManager
  * @see \Remonode\SDK\Services\KeyValidator
+ * @see \Remonode\SDK\Services\RemonodeManager
  */
 class RemonodeFacade extends Facade
 {

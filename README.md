@@ -80,6 +80,7 @@ REMONODE_ENVIRONMENT=production
 # Optional: Features
 REMONODE_SYNC_TO_PORTAL=true
 REMONODE_API_KEY_ENFORCEMENT=true
+REMONODE_QUOTA_ENFORCEMENT=false
 REMONODE_CACHE_ENABLED=true
 REMONODE_CACHE_TTL=60
 ```
@@ -424,6 +425,7 @@ Only Remonode-specific features are disabled:
 | `cache_ttl` | `REMONODE_CACHE_TTL` | `60` | Cache TTL in minutes |
 | `sync_to_portal` | `REMONODE_SYNC_TO_PORTAL` | `true` | Auto-sync metadata to Remonode |
 | `enforcement` | `REMONODE_API_KEY_ENFORCEMENT` | `true` | Master middleware switch |
+| `quota_enforcement` | `REMONODE_QUOTA_ENFORCEMENT` | `false` | Check monthly quota via portal |
 | `webhook_secret` | `REMONODE_WEBHOOK_SECRET` | `''` | HMAC secret for webhook verification |
 | `user_model` | `REMONODE_USER_MODEL` | `App\Models\User` | Your User model class |
 
@@ -490,6 +492,27 @@ Remonode::syncToPortal($key);
 | `last_used_at` | timestamp | Last validation time |
 | `created_at/updated_at` | timestamps | — |
 | `deleted_at` | timestamp | Soft delete |
+
+---
+
+## Billing & Quotas
+
+Connected apps are auto-assigned the **Free** plan on registration. Plans control monthly API call limits:
+
+| Plan | Monthly Requests | Price |
+|------|-----------------|-------|
+| Free | 10,000 | ₦0 |
+| Starter | 100,000 | ₦5,000/mo |
+| Pro | 1,000,000 | ₦25,000/mo |
+| Enterprise | Unlimited | Custom |
+
+To enforce quotas, enable it in your `.env`:
+
+```env
+REMONODE_QUOTA_ENFORCEMENT=true
+```
+
+When enabled, the middleware returns `429` with quota details when the limit is exceeded. Developers can upgrade via the Remonode portal.
 
 ---
 

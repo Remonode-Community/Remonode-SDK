@@ -132,4 +132,46 @@ class RemonodeManager
             'environment' => $key->environment,
         ]);
     }
+
+    /**
+     * Check the connected app's current plan, usage, and quota status.
+     */
+    public function checkQuota(): array
+    {
+        if (! $this->client) {
+            throw new \RuntimeException(
+                'Remonode portal client not configured. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.'
+            );
+        }
+
+        return $this->client->checkQuota();
+    }
+
+    /**
+     * Get available plans from the Remonode portal.
+     */
+    public function getPlans(): array
+    {
+        if (! $this->client) {
+            throw new \RuntimeException(
+                'Remonode portal client not configured. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.'
+            );
+        }
+
+        return $this->client->getPlans();
+    }
+
+    /**
+     * Upgrade the connected app's plan.
+     */
+    public function upgradePlan(string $planCode): array
+    {
+        if (! $this->client) {
+            throw new \RuntimeException(
+                'Remonode portal client not configured. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.'
+            );
+        }
+
+        return $this->client->upgradePlan($planCode);
+    }
 }

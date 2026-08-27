@@ -67,6 +67,32 @@ class RemonodeClient
     }
 
     /**
+     * Check the connected app's current plan, usage, and quota status.
+     */
+    public function checkQuota(): array
+    {
+        return $this->get('/api/v1/developer/connected-app/status');
+    }
+
+    /**
+     * Get available plans from the Remonode portal.
+     */
+    public function getPlans(): array
+    {
+        return $this->get('/api/v1/developer/connected-app/plans');
+    }
+
+    /**
+     * Upgrade the connected app's plan.
+     */
+    public function upgradePlan(string $planCode): array
+    {
+        return $this->post('/api/v1/developer/connected-app/upgrade', [
+            'plan_code' => $planCode,
+        ]);
+    }
+
+    /**
      * Make a GET request to the Remonode portal.
      */
     public function get(string $endpoint, array $query = []): array

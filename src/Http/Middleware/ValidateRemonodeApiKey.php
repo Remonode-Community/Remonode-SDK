@@ -62,9 +62,61 @@ class ValidateRemonodeApiKey
             ], 403);
         }
 
+        // Check quota if enforcement is enabled
+        if (config('remonode.quota_enforcement', false)) {
+            $quotaCheck = $this->checkQuota($apiKey);
+            if ($quotaCheck) {
+                return $quotaCheck;
+            }
+        }
+
         $request->attributes->set('remonode_api_key', $apiKey);
 
         return $next($request);
+    }
+
+    private function checkQuota($apiKey): ?mixed
+    {
+        // Get the application's active subscription via portal if configured
+        $portalUrl = config('remonode.portal_url');
+        $portalKey = config('remonode.portal_key');
+
+        if (! $portalUrl || ! $portalKey) {
+            return null;
+        }
+
+        try {
+            $client = new \GuzzleHttp\Client(['timeout' => 10]);
+            $response = $client->get($portalUrl . '/api/v1/connected-app/status', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $portalKey,
+                    'Accept' => 'application/json',
+                ],
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+            $usage = $data['data']['usage'] ?? null;
+            $plan = $data['data']['plan'] ?? null;
+
+            if ($usage && $plan && $plan['monthly_quota'] !== null) {
+                if ($usage['current_month'] >= $plan['monthly_quota']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Monthly API quota exceeded.',
+                        'error' => 'quota_exceeded',
+                        'quota' => [
+                            'limit' => $plan['monthly_quota'],
+                            'used' => $usage['current_month'],
+                            'resets_at' => $usage['resets_at'],
+                        ],
+                    ], 429);
+                }
+            }
+        } catch (\Exception $e) {
+            // If portal is unreachable, allow the request (fail open)
+        }
+
+        return null;
     }
 
     private function resolveKey(Request $request): ?string
