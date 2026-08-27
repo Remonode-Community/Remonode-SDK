@@ -102,13 +102,21 @@ class RemonodeManager
      * Register this application with the Remonode portal.
      *
      * Call once during initial setup.
+     * Returns success with local-only mode if portal is not configured.
      */
     public function register(string $appName, string $ownerEmail, ?string $ownerName = null): array
     {
         if (! $this->client) {
-            throw new \RuntimeException(
-                'Remonode portal client not configured. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.'
-            );
+            return [
+                'success' => true,
+                'mode' => 'local_only',
+                'message' => 'App registered locally. Portal sync skipped (REMONODE_PORTAL_KEY not configured).',
+                'data' => [
+                    'app_name' => $appName,
+                    'owner_email' => $ownerEmail,
+                    'owner_name' => $ownerName,
+                ],
+            ];
         }
 
         return $this->client->registerApplication($appName, $ownerEmail, $ownerName);
@@ -139,9 +147,11 @@ class RemonodeManager
     public function checkQuota(): array
     {
         if (! $this->client) {
-            throw new \RuntimeException(
-                'Remonode portal client not configured. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.'
-            );
+            return [
+                'success' => false,
+                'mode' => 'local_only',
+                'message' => 'Quota check requires portal connection. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.',
+            ];
         }
 
         return $this->client->checkQuota();
@@ -153,9 +163,11 @@ class RemonodeManager
     public function getPlans(): array
     {
         if (! $this->client) {
-            throw new \RuntimeException(
-                'Remonode portal client not configured. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.'
-            );
+            return [
+                'success' => false,
+                'mode' => 'local_only',
+                'message' => 'Plans require portal connection. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.',
+            ];
         }
 
         return $this->client->getPlans();
@@ -167,9 +179,11 @@ class RemonodeManager
     public function upgradePlan(string $planCode): array
     {
         if (! $this->client) {
-            throw new \RuntimeException(
-                'Remonode portal client not configured. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.'
-            );
+            return [
+                'success' => false,
+                'mode' => 'local_only',
+                'message' => 'Plan upgrade requires portal connection. Set REMONODE_PORTAL_URL and REMONODE_PORTAL_KEY in your .env file.',
+            ];
         }
 
         return $this->client->upgradePlan($planCode);

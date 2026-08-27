@@ -65,29 +65,38 @@ This creates the `remonode_api_keys` table in your database.
 ### 4. Configure your `.env`
 
 ```env
-# Required: Remonode portal connection
-REMONODE_PORTAL_URL=https://remonode.ng
-REMONODE_PORTAL_KEY=your-portal-secret-key
-
-# Optional: Your app UUID (assigned after registration)
-REMONODE_APP_UUID=
-
-# Optional: Key generation customization
+# Local key management (works without Remonode portal)
 REMONODE_PK_PREFIX=pk_
 REMONODE_SK_PREFIX=sk_
 REMONODE_ENVIRONMENT=production
-
-# Optional: Features
-REMONODE_SYNC_TO_PORTAL=true
 REMONODE_API_KEY_ENFORCEMENT=true
-REMONODE_QUOTA_ENFORCEMENT=false
 REMONODE_CACHE_ENABLED=true
 REMONODE_CACHE_TTL=60
+
+# Optional: Remonode portal connection (for sync, billing, and quota features)
+# REMONODE_PORTAL_URL=https://remonode.ng
+# REMONODE_PORTAL_KEY=your-portal-secret-key
+# REMONODE_APP_UUID=your-app-uuid
+# REMONODE_SYNC_TO_PORTAL=true
+# REMONODE_QUOTA_ENFORCEMENT=false
 ```
 
-### 5. (Optional) Register your app with Remonode
+> **Note:** The portal connection is **optional**. The SDK works fully offline for local key management. Only enable portal features if you want to sync metadata, manage billing, or enforce quotas through [Remonode](https://www.remonode.com).
 
-If you want Remonode to track your app's keys and billing, you must first have an account on [Remonode](https://www.remonode.com). Your email on Remonode must match the one used in your Laravel app.
+### 5. (Optional) Connect to Remonode Portal
+
+If you want Remonode to track your app's keys and billing:
+
+1. Create an account at [www.remonode.com](https://www.remonode.com)
+2. Go to **Profile** page to copy your **Portal Key**
+3. Add the portal credentials to your `.env`:
+
+```env
+REMONODE_PORTAL_URL=https://remonode.ng
+REMONODE_PORTAL_KEY=your-portal-secret-key
+```
+
+4. Register your app:
 
 ```php
 use Remonode\SDK\RemonodeFacade as Remonode;
@@ -97,6 +106,10 @@ $result = Remonode::register(
     ownerEmail: 'admin@myapp.com',
     ownerName: 'John Doe'
 );
+
+// Returns:
+// - 'mode' => 'local_only' if portal not configured
+// - 'mode' => 'portal' if connected to Remonode
 ```
 
 ---
