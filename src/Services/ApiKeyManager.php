@@ -27,7 +27,6 @@ class ApiKeyManager
         ?string $expiresAt = null,
     ): array {
         $pair = $this->generator->generateKeyPair();
-        $environment = config('remonode.environment', 'production');
         $appUuid = config('remonode.app_uuid', '');
 
         $key = LocalApiKey::create([
@@ -40,7 +39,7 @@ class ApiKeyManager
             'secret_last_four' => substr($pair['secret_key'], -4),
             'name' => $name,
             'status' => 'active',
-            'environment' => $environment,
+            'environment' => config('remonode.environment', 'production'),
             'expires_at' => $expiresAt,
         ]);
 

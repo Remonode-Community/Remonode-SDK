@@ -17,11 +17,20 @@ class RemonodeServiceProvider extends ServiceProvider
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
-        $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
+        // Register SDK API routes directly in the router under the 'api' middleware group.
+        // loadRoutesFrom() always applies the 'web' middleware group which includes CSRF,
+        // blocking POST requests from external servers (like the Remonode portal).
+        $this->app['router']->group([
+            'prefix' => 'api/v1/remonode',
+            'middleware' => ['api'],
+        ], function () {
+            require __DIR__ . '/../routes/api.php';
+        });
         $this->loadRoutesFrom(__DIR__ . '/../routes/webhook.php');
 
         // Register middleware
         $this->app['router']->aliasMiddleware('remonode.key', \Remonode\SDK\Http\Middleware\ValidateRemonodeKeyType::class);
+        $this->app['router']->aliasMiddleware('remonode.portal', \Remonode\SDK\Http\Middleware\AuthenticatePortalKey::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([

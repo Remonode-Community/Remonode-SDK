@@ -121,7 +121,17 @@ class RemonodeManager
         }
 
         try {
-            return $this->client->registerApplication($appName, $ownerEmail, $ownerName);
+            // Send app URL and portal key so the portal can provision keys back to us
+            $registeredUrl = config('remonode.app_url');
+            $portalKey = config('remonode.portal_key');
+
+            return $this->client->registerApplication(
+                $appName,
+                $ownerEmail,
+                $ownerName,
+                $registeredUrl,
+                $portalKey,
+            );
         } catch (RemonodeConnectionException $e) {
             return [
                 'success' => false,

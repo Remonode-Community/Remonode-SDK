@@ -19,14 +19,23 @@ class RemonodeClient
      * Register this application with the Remonode portal.
      *
      * Called once during initial setup to establish the app connection.
+     * Sends the app's URL and portal key so the portal can provision
+     * keys back to the connected app.
      */
-    public function registerApplication(string $appName, string $ownerEmail, ?string $ownerName = null): array
-    {
-        return $this->post('/api/v1/portal/applications/register', [
+    public function registerApplication(
+        string $appName,
+        string $ownerEmail,
+        ?string $ownerName = null,
+        ?string $registeredUrl = null,
+        ?string $portalKey = null,
+    ): array {
+        return $this->post('/api/v1/portal/applications/register', array_filter([
             'name' => $appName,
             'owner_email' => $ownerEmail,
             'owner_name' => $ownerName,
-        ]);
+            'registered_url' => $registeredUrl,
+            'portal_key' => $portalKey,
+        ], fn ($v) => $v !== null));
     }
 
     /**

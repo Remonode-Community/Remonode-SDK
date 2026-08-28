@@ -37,6 +37,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application URL (for Portal Provisioning)
+    |--------------------------------------------------------------------------
+    |
+    | The publicly accessible URL of your application where the Remonode
+    | portal can call the SDK's provision endpoint to generate keys.
+    | Example: https://yourapp.com
+    |
+    */
+    'app_url' => env('REMONODE_APP_URL', env('APP_URL', '')),
+
+    /*
+    |--------------------------------------------------------------------------
     | HTTP Timeout
     |--------------------------------------------------------------------------
     */
@@ -148,6 +160,20 @@ return [
     |
     */
     'quota_enforcement' => env('REMONODE_QUOTA_ENFORCEMENT', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Portal Key Provisioning
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the Remonode portal can call your app's endpoint to
+    | generate API keys on behalf of your users. This allows users to
+    | generate keys from the portal UI without leaving the dashboard.
+    |
+    | The portal authenticates using the same PORTAL_KEY shared secret.
+    |
+    */
+    'portal_provision_keys' => env('REMONODE_PORTAL_PROVISION_KEYS', true),
 
     /*
     |--------------------------------------------------------------------------
