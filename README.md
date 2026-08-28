@@ -218,6 +218,11 @@ $result = Remonode::register(
 );
 ```
 
+If keys were generated before connecting to the portal, push them manually:
+```bash
+php artisan remonode:push-keys
+```
+
 ```
 Testing connection to Remonode portal...
   URL: https://remonode.ng
@@ -261,6 +266,9 @@ return response()->json([
 6. Stores everything in your `remonode_api_keys` table
 7. **The plaintext secret key is returned exactly once — it is never stored**
 8. If `sync_to_portal=true`, key metadata is sent to Remonode
+9. Key appears in Remonode portal dashboard for management and billing
+
+> **Portal visibility:** After generation, the key is visible on the Remonode portal under your connected app. Users can view the public key there, but the secret key is only shown once at generation time.
 
 ---
 
@@ -712,10 +720,40 @@ The email is queued via Laravel's mail system. Check `app/Mail/PortalWelcomeEmai
 # Test portal connectivity
 php artisan remonode:test-connection
 
-# Sync key metadata from portal
+# Push local keys TO the portal (for keys that failed to sync)
+php artisan remonode:push-keys
+php artisan remonode:push-keys --id=sk_live_abc123     # Push specific key
+php artisan remonode:push-keys --user=1                 # Push keys for a user
+php artisan remonode:push-keys --force                  # Re-push all keys
+
+# Sync key metadata FROM the portal (pull portal keys into local DB)
 php artisan remonode:sync-keys
 php artisan remonode:sync-keys --email=user@example.com
 ```
+
+### Key Sync Flow
+
+Keys are generated **locally** in your app and metadata is synced to the portal:
+
+```
+Generate locally (Remonode::generate)
+        │
+        ▼
+Auto-sync to portal (if sync_to_portal=true)
+        │
+        ├── ✅ Success → remote_id saved on key
+        │
+        └── ❌ Failed → key exists locally, not on portal
+                         │
+                         ▼
+                  Run: php artisan remonode:push-keys
+```
+
+| Command | Direction | Purpose |
+|---------|-----------|---------|
+| `Remonode::generate()` | App → Portal | Auto-sync on generation |
+| `php artisan remonode:push-keys` | App → Portal | Push missed keys manually |
+| `php artisan remonode:sync-keys` | Portal → App | Pull portal keys into local DB |
 
 ---
 

@@ -27,6 +27,7 @@ class RemonodeServiceProvider extends ServiceProvider
             $this->commands([
                 \Remonode\SDK\Commands\TestConnectionCommand::class,
                 \Remonode\SDK\Commands\SyncKeysCommand::class,
+                \Remonode\SDK\Commands\PushKeysToPortalCommand::class,
             ]);
         }
 
