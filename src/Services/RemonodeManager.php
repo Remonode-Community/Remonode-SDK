@@ -2,6 +2,7 @@
 
 namespace Remonode\SDK\Services;
 
+use Remonode\SDK\Exceptions\RemonodeConnectionException;
 use Remonode\SDK\Models\LocalApiKey;
 
 /**
@@ -119,7 +120,21 @@ class RemonodeManager
             ];
         }
 
-        return $this->client->registerApplication($appName, $ownerEmail, $ownerName);
+        try {
+            return $this->client->registerApplication($appName, $ownerEmail, $ownerName);
+        } catch (RemonodeConnectionException $e) {
+            return [
+                'success' => false,
+                'mode' => 'local_only',
+                'message' => 'App registered locally but portal sync failed. Remonode portal unreachable.',
+                'error' => $e->getMessage(),
+                'data' => [
+                    'app_name' => $appName,
+                    'owner_email' => $ownerEmail,
+                    'owner_name' => $ownerName,
+                ],
+            ];
+        }
     }
 
     /**
@@ -131,14 +146,18 @@ class RemonodeManager
             return null;
         }
 
-        return $this->client->syncKeyMetadata([
-            'key_id' => $key->key_id,
-            'public_key' => $key->public_key,
-            'user_id' => $key->user_id,
-            'name' => $key->name,
-            'status' => $key->status,
-            'environment' => $key->environment,
-        ]);
+        try {
+            return $this->client->syncKeyMetadata([
+                'key_id' => $key->key_id,
+                'public_key' => $key->public_key,
+                'user_id' => $key->user_id,
+                'name' => $key->name,
+                'status' => $key->status,
+                'environment' => $key->environment,
+            ]);
+        } catch (RemonodeConnectionException $e) {
+            return null;
+        }
     }
 
     /**
@@ -154,7 +173,16 @@ class RemonodeManager
             ];
         }
 
-        return $this->client->checkQuota();
+        try {
+            return $this->client->checkQuota();
+        } catch (RemonodeConnectionException $e) {
+            return [
+                'success' => false,
+                'mode' => 'local_only',
+                'message' => 'Quota check failed. Remonode portal unreachable.',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -170,7 +198,16 @@ class RemonodeManager
             ];
         }
 
-        return $this->client->getPlans();
+        try {
+            return $this->client->getPlans();
+        } catch (RemonodeConnectionException $e) {
+            return [
+                'success' => false,
+                'mode' => 'local_only',
+                'message' => 'Plans fetch failed. Remonode portal unreachable.',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -186,6 +223,15 @@ class RemonodeManager
             ];
         }
 
-        return $this->client->upgradePlan($planCode);
+        try {
+            return $this->client->upgradePlan($planCode);
+        } catch (RemonodeConnectionException $e) {
+            return [
+                'success' => false,
+                'mode' => 'local_only',
+                'message' => 'Plan upgrade failed. Remonode portal unreachable.',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 }

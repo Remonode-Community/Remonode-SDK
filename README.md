@@ -108,9 +108,12 @@ $result = Remonode::register(
 );
 
 // Returns:
-// - 'mode' => 'local_only' if portal not configured
+// - 'mode' => 'local_only' if portal not configured or unreachable
 // - 'mode' => 'portal' if connected to Remonode
+// - 'success' => false with 'error' if portal is unreachable
 ```
+
+> **Note:** If the portal is unreachable, registration still succeeds locally. The SDK returns a graceful error response instead of throwing an exception.
 
 ---
 
@@ -227,9 +230,10 @@ return response()->json([
 2. Package generates `sk_` + 40 random chars (secret key)
 3. Extracts 12-char lookup prefix from the secret key
 4. Hashes the full secret key with SHA-256
-5. Stores everything in your `remonode_api_keys` table
-6. **The plaintext secret key is returned exactly once — it is never stored**
-7. If `sync_to_portal=true`, key metadata is sent to Remonode
+5. Generates a unique `key_id` (16 random chars) for database lookups
+6. Stores everything in your `remonode_api_keys` table
+7. **The plaintext secret key is returned exactly once — it is never stored**
+8. If `sync_to_portal=true`, key metadata is sent to Remonode
 
 ---
 
@@ -415,6 +419,8 @@ Only Remonode-specific features are disabled:
 - Key metadata sync
 - Webhook events from Remonode
 
+**Graceful fallback:** If `REMONODE_PORTAL_KEY` is set but the portal is unreachable (network issues, server down), the SDK returns `{success: false, mode: "local_only"}` with a helpful error message instead of throwing exceptions. This ensures your app never breaks due to portal downtime.
+
 ---
 
 ## Configuration Reference
@@ -432,15 +438,18 @@ Only Remonode-specific features are disabled:
 | `key_generation.public_random_length` | — | `32` | Random chars in public key |
 | `key_generation.secret_random_length` | — | `40` | Random chars in secret key |
 | `key_generation.hash_algo` | — | `sha256` | Hash algorithm for secret storage |
+| `key_generation.key_id_length` | — | `16` | Random chars in key_id lookup |
 | `key_generation.secret_lookup_length` | — | `12` | Prefix chars for indexed lookup |
 | `environment` | `REMONODE_ENVIRONMENT` | `production` | Key environment (production/sandbox) |
 | `cache_enabled` | `REMONODE_CACHE_ENABLED` | `true` | Cache validated keys |
 | `cache_ttl` | `REMONODE_CACHE_TTL` | `60` | Cache TTL in minutes |
+| `table` | — | `remonode_api_keys` | Database table name |
 | `sync_to_portal` | `REMONODE_SYNC_TO_PORTAL` | `true` | Auto-sync metadata to Remonode |
 | `enforcement` | `REMONODE_API_KEY_ENFORCEMENT` | `true` | Master middleware switch |
 | `quota_enforcement` | `REMONODE_QUOTA_ENFORCEMENT` | `false` | Check monthly quota via portal |
 | `webhook_secret` | `REMONODE_WEBHOOK_SECRET` | `''` | HMAC secret for webhook verification |
 | `user_model` | `REMONODE_USER_MODEL` | `App\Models\User` | Your User model class |
+| `exempt_uris` | — | `['api/health', ...]` | Routes that bypass API key validation |
 
 ---
 
@@ -448,6 +457,8 @@ Only Remonode-specific features are disabled:
 
 ```php
 use Remonode\SDK\RemonodeFacade as Remonode;
+
+// ─── Local Key Management ────────────────────────────────────
 
 // Generate keys locally
 $result = Remonode::generate($userId, $name, $expiresAt);
@@ -474,12 +485,31 @@ $key = Remonode::findByPublicKey('pk_live_xyz789...');
 $hasKeys = Remonode::hasActiveKeys($userId);
 $canRevoke = Remonode::canRevoke($key);
 
-// Register with Remonode (optional)
-$apps = Remonode::register('My App', 'admin@myapp.com', 'John');
+// ─── Portal Integration (optional) ───────────────────────────
+
+// Register with Remonode (returns local_only if portal unreachable)
+$result = Remonode::register('My App', 'admin@myapp.com', 'John');
+// Returns: ['success' => true, 'mode' => 'local_only'|'portal', ...]
 
 // Manual sync to portal
 Remonode::syncToPortal($key);
+
+// ─── Billing & Quotas (requires portal connection) ───────────
+
+// Check current plan, usage, and quota
+$result = Remonode::checkQuota();
+// Returns: ['success' => true, 'data' => ['plan' => ..., 'usage' => ..., 'quota' => ...]]
+
+// Get available plans
+$result = Remonode::getPlans();
+// Returns: ['success' => true, 'data' => ['plans' => [...]]]
+
+// Upgrade the app's plan
+$result = Remonode::upgradePlan('starter');
+// Returns: ['success' => true, 'data' => ['plan' => ...]]
 ```
+
+**Graceful fallback:** All portal-dependent methods (`register()`, `checkQuota()`, `getPlans()`, `upgradePlan()`) return `{success: false, mode: "local_only"}` with a helpful message instead of throwing exceptions when the portal is unreachable.
 
 ---
 
@@ -527,6 +557,31 @@ REMONODE_QUOTA_ENFORCEMENT=true
 
 When enabled, the middleware returns `429` with quota details when the limit is exceeded. Developers can upgrade via the Remonode portal.
 
+### Using the Facade
+
+```php
+// Check current plan and usage
+$quota = Remonode::checkQuota();
+// Returns: ['success' => true, 'data' => ['plan' => ..., 'usage' => ..., 'quota' => ...]]
+
+// List available plans
+$plans = Remonode::getPlans();
+// Returns: ['success' => true, 'data' => ['plans' => [...]]]
+
+// Upgrade plan (triggers Paystack checkout)
+$upgrade = Remonode::upgradePlan('starter');
+```
+
+### Portal Welcome Email
+
+When the SDK registers a new app with the portal, the portal creates a user account and sends a welcome email with:
+- Temporary password
+- Login link
+- Change password link
+- Security notice recommending immediate password change
+
+The email is queued via Laravel's mail system. Check `app/Mail/PortalWelcomeEmail.php` and `resources/views/emails/portal-welcome.blade.php` for customization.
+
 ---
 
 ## Security
@@ -538,6 +593,8 @@ When enabled, the middleware returns `429` with quota details when the limit is 
 5. **Lockout protection** — cannot revoke last active key pair
 6. **Webhook verification** — HMAC-SHA512 signature check on all webhook payloads
 7. **`secret_hash` hidden** — never serialized in JSON responses
+8. **Portal passwords are random** — auto-generated 16-char passwords, never reused
+9. **Welcome email queued** — sent asynchronously, failures logged but don't block registration
 
 ---
 
