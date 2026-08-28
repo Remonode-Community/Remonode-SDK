@@ -20,6 +20,9 @@ class RemonodeServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
         $this->loadRoutesFrom(__DIR__ . '/../routes/webhook.php');
 
+        // Register middleware
+        $this->app['router']->aliasMiddleware('remonode.key', \Remonode\SDK\Http\Middleware\ValidateRemonodeKeyType::class);
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Remonode\SDK\Commands\TestConnectionCommand::class,

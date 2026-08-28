@@ -121,6 +121,33 @@ $result = Remonode::register(
 
 ### Protect a route with API key validation
 
+The SDK provides two middleware options:
+
+**1. Key-type specific middleware** (recommended for production):
+
+```php
+use Illuminate\Support\Facades\Route;
+
+// Public endpoints — protect with PUBLIC KEY (pk_*)
+Route::middleware('remonode.key:pk')->group(function () {
+    Route::get('/api/v1/public/products', [ProductController::class, 'index']);
+    Route::get('/api/v1/public/categories', [CategoryController::class, 'index']);
+});
+
+// Private endpoints — protect with SECRET KEY (sk_*)
+Route::middleware('remonode.key:sk')->group(function () {
+    Route::get('/api/v1/wallet/balance', [WalletController::class, 'balance']);
+    Route::post('/api/v1/transfer', [TransferController::class, 'store']);
+});
+
+// Both key types accepted (legacy behavior)
+Route::middleware('remonode.key:any')->group(function () {
+    Route::get('/api/v1/mixed', [MixedController::class, 'index']);
+});
+```
+
+**2. Legacy middleware** (accepts both key types):
+
 ```php
 use Remonode\SDK\Http\Middleware\ValidateRemonodeApiKey;
 
@@ -241,7 +268,69 @@ return response()->json([
 
 **As a developer, I want only authenticated API consumers to access my endpoints.**
 
-The middleware checks the `X-Api-Key`, `X-Public-Key`, or `Authorization: Bearer` header against your local database.
+The SDK provides **two middleware approaches**:
+
+#### Option A: Key-Type Specific Protection (Recommended)
+
+Use `remonode.key` middleware with a parameter to restrict endpoints to specific key types:
+
+```php
+use Illuminate\Support\Facades\Route;
+
+// ─── Public endpoints — only PUBLIC KEYS (pk_*) allowed ───
+Route::middleware('remonode.key:pk')->group(function () {
+    Route::get('/api/v1/public/products', [ProductController::class, 'index']);
+    Route::get('/api/v1/public/categories', [CategoryController::class, 'index']);
+});
+
+// ─── Private endpoints — only SECRET KEYS (sk_*) allowed ───
+Route::middleware('remonode.key:sk')->group(function () {
+    Route::get('/api/v1/wallet/balance', [WalletController::class, 'balance']);
+    Route::post('/api/v1/transfer', [TransferController::class, 'store']);
+});
+
+// ─── Admin endpoints — require secret keys ───
+Route::middleware('remonode.key:sk')->group(function () {
+    Route::get('/api/v1/admin/stats', [AdminController::class, 'stats']);
+});
+
+// ─── Legacy: both key types accepted ───
+Route::middleware('remonode.key:any')->group(function () {
+    Route::get('/api/v1/mixed', [MixedController::class, 'index']);
+});
+```
+
+| Middleware | Accepts | Header | Use Case |
+|------------|---------|--------|----------|
+| `remonode.key:pk` | Public keys only | `X-Public-Key` | Public APIs, documentation, catalogs |
+| `remonode.key:sk` | Secret keys only | `X-Api-Key` | Private APIs, mutations, billing |
+| `remonode.key:any` | Both | `X-Api-Key` / `X-Public-Key` / `Bearer` | Migration, mixed access |
+
+**API consumer requests:**
+
+```bash
+# Public endpoint (pk_*)
+curl -H "X-Public-Key: pk_live_abc123..." \
+     https://yourapp.com/api/v1/public/products
+
+# Private endpoint (sk_*)
+curl -H "X-Api-Key: sk_live_abc123..." \
+     https://yourapp.com/api/v1/wallet/balance
+```
+
+**Error responses:**
+
+```json
+// Wrong key type
+{ "success": false, "message": "Public key required for this endpoint." }
+
+// Missing key
+{ "success": false, "message": "Missing public key. Provide X-Public-Key header with pk_* key." }
+```
+
+#### Option B: Legacy Middleware (Both Key Types)
+
+The original `ValidateRemonodeApiKey` middleware accepts both `pk_*` and `sk_*` keys:
 
 ```php
 // In your routes/api.php
@@ -253,24 +342,14 @@ Route::middleware(ValidateRemonodeApiKey::class)->group(function () {
 });
 ```
 
-**API consumer sends a request:**
+**Validation flow (both middlewares):**
 
-```bash
-curl -X GET https://yourapp.com/api/v1/wallet/balance \
-  -H "X-Api-Key: sk_live_abcdefgh12345678rest..." \
-  -H "Authorization: Bearer your-sanctum-token" \
-  -H "Accept: application/json"
-```
-
-**Validation flow:**
-
-1. Read `X-Api-Key` header value
-2. Extract 12-char prefix from the secret key
-3. Query `remonode_api_keys` WHERE `secret_prefix` = prefix (indexed lookup)
-4. For each candidate, hash the input and compare with `hash_equals()` (constant-time)
-5. Check key is active and not expired
-6. Attach key model to request
-7. Access it in your controller: `$request->get('remonode_api_key')`
+1. Read header (`X-Api-Key`, `X-Public-Key`, or `Authorization: Bearer`)
+2. For `sk_*`: extract 12-char prefix → indexed lookup → constant-time hash compare
+3. For `pk_*`: direct lookup by `public_key` column
+4. Check key is active and not expired
+5. Attach key model to request: `$request->get('remonode_api_key')`
+6. Optionally enforce monthly quota (if `REMONODE_QUOTA_ENFORCEMENT=true`)
 
 **If key is invalid:**
 ```json
@@ -450,6 +529,35 @@ Only Remonode-specific features are disabled:
 | `webhook_secret` | `REMONODE_WEBHOOK_SECRET` | `''` | HMAC secret for webhook verification |
 | `user_model` | `REMONODE_USER_MODEL` | `App\Models\User` | Your User model class |
 | `exempt_uris` | — | `['api/health', ...]` | Routes that bypass API key validation |
+
+---
+
+### Middleware Reference
+
+The package registers two middleware aliases automatically:
+
+| Alias | Class | Usage |
+|-------|-------|-------|
+| `remonode.key` | `ValidateRemonodeKeyType` | Key-type specific (`:pk`, `:sk`, `:any`) |
+| `remonode.api_key` | `ValidateRemonodeApiKey` | Legacy (accepts both key types) |
+
+**Usage examples:**
+
+```php
+// Key-type specific (recommended)
+Route::middleware('remonode.key:pk')->group(...);
+Route::middleware('remonode.key:sk')->group(...);
+Route::middleware('remonode.key:any')->group(...);
+
+// Legacy (both key types)
+Route::middleware('remonode.api_key')->group(...);
+
+// Or use the class directly
+use Remonode\SDK\Http\Middleware\ValidateRemonodeApiKey;
+Route::middleware(ValidateRemonodeApiKey::class)->group(...);
+```
+
+> **Note:** The `remonode.key` middleware is registered automatically by the service provider. No manual registration required.
 
 ---
 
