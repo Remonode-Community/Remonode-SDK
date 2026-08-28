@@ -16,6 +16,9 @@ Laravel SDK for API key management and Remonode portal integration. Generate, va
 │   pk_... + sk_...         │  sync    │   - Usage tracking        │
 │   Stored in YOUR DB       │          │   - Audit trail           │
 │   Validated locally       │          │                           │
+│                           │  ◄────── │   Portal can provision    │
+│   SDK provision endpoint  │  call    │   keys on your app via    │
+│   POST /portal/provision  │          │   the SDK endpoint        │
 └──────────────────────────┘          └──────────────────────────┘
          │                                      │
          ▼                                      ▼
@@ -23,7 +26,7 @@ Laravel SDK for API key management and Remonode portal integration. Generate, va
    (protected by middleware)           (handled by Remonode)
 ```
 
-**Key principle:** Your application generates its own keys. Remonode never generates keys for you.
+**Key principle:** Your application generates its own keys. Remonode never generates keys for you. However, the Remonode portal can *call your app's SDK endpoint* to generate keys on behalf of your users.
 
 ---
 
@@ -77,8 +80,10 @@ REMONODE_CACHE_TTL=60
 # REMONODE_PORTAL_URL=https://remonode.ng
 # REMONODE_PORTAL_KEY=your-portal-secret-key
 # REMONODE_APP_UUID=your-app-uuid
+# REMONODE_APP_URL=https://yourapp.com
 # REMONODE_SYNC_TO_PORTAL=true
 # REMONODE_QUOTA_ENFORCEMENT=false
+# REMONODE_PORTAL_PROVISION_KEYS=true
 ```
 
 > **Note:** The portal connection is **optional**. The SDK works fully offline for local key management. Only enable portal features if you want to sync metadata, manage billing, or enforce quotas through [Remonode](https://www.remonode.com).
@@ -94,6 +99,7 @@ If you want Remonode to track your app's keys and billing:
 ```env
 REMONODE_PORTAL_URL=https://remonode.ng
 REMONODE_PORTAL_KEY=your-portal-secret-key
+REMONODE_APP_URL=https://yourapp.com
 ```
 
 4. Register your app:
@@ -114,6 +120,37 @@ $result = Remonode::register(
 ```
 
 > **Note:** If the portal is unreachable, registration still succeeds locally. The SDK returns a graceful error response instead of throwing an exception.
+
+### 6. (Optional) Enable Portal Key Provisioning
+
+When enabled, the Remonode portal can call your app's endpoint to generate API keys on behalf of your users. This allows users to generate keys from the portal UI without leaving the dashboard.
+
+```env
+REMONODE_APP_URL=https://yourapp.com
+REMONODE_PORTAL_PROVISION_KEYS=true
+```
+
+The portal authenticates using the same `PORTAL_KEY` shared secret. The provision endpoint is:
+
+```
+POST /api/v1/remonode/portal/provision
+Header: X-Portal-Key: {shared_secret}
+Body: {
+    "email": "user@example.com",     // or "user_id": 123
+    "name": "My API Key",            // optional
+    "environment": "production",     // optional
+    "key_type": "both",              // optional: both, public, private
+    "expires_at": "2027-01-01"       // optional
+}
+```
+
+**How it works:**
+
+1. Portal admin clicks "Generate Key" on a connected app
+2. Portal calls your app's `POST /api/v1/remonode/portal/provision`
+3. Your app generates keys locally in `remonode_api_keys` table
+4. Keys are returned to the portal and stored for management
+5. User can now use the keys on your API endpoints
 
 ---
 
@@ -378,6 +415,11 @@ The package provides ready-made routes:
 // POST   /api/v1/remonode/api-keys              → Generate new key pair
 // POST   /api/v1/remonode/api-keys/{keyId}/rotate → Rotate key
 // POST   /api/v1/remonode/api-keys/{keyId}/revoke → Revoke key
+
+// Portal-facing routes (require portal key auth):
+// POST   /api/v1/remonode/portal/provision       → Generate keys for a user
+// GET    /api/v1/remonode/portal/keys            → List keys for a user
+// POST   /api/v1/remonode/portal/keys/{keyId}/revoke → Revoke a key
 ```
 
 All routes require `auth:sanctum` middleware.
@@ -519,6 +561,7 @@ Only Remonode-specific features are disabled:
 | `portal_url` | `REMONODE_PORTAL_URL` | `http://localhost:8006` | Remonode portal base URL |
 | `portal_key` | `REMONODE_PORTAL_KEY` | `''` | Shared secret for portal auth |
 | `app_uuid` | `REMONODE_APP_UUID` | `''` | Your app's UUID on Remonode |
+| `app_url` | `REMONODE_APP_URL` | `APP_URL` | Your app's public URL for portal provisioning |
 | `timeout` | `REMONODE_TIMEOUT` | `15` | HTTP timeout (seconds) |
 | `key_generation.public_prefix` | `REMONODE_PK_PREFIX` | `pk_` | Public key prefix |
 | `key_generation.secret_prefix` | `REMONODE_SK_PREFIX` | `sk_` | Secret key prefix |
@@ -536,6 +579,7 @@ Only Remonode-specific features are disabled:
 | `quota_enforcement` | `REMONODE_QUOTA_ENFORCEMENT` | `false` | Check monthly quota via portal |
 | `webhook_secret` | `REMONODE_WEBHOOK_SECRET` | `''` | HMAC secret for webhook verification |
 | `user_model` | `REMONODE_USER_MODEL` | `App\Models\User` | Your User model class |
+| `portal_provision_keys` | `REMONODE_PORTAL_PROVISION_KEYS` | `true` | Allow portal to provision keys via SDK |
 | `exempt_uris` | — | `['api/health', ...]` | Routes that bypass API key validation |
 
 ---
@@ -547,6 +591,7 @@ The package registers two middleware aliases automatically:
 | Alias | Class | Usage |
 |-------|-------|-------|
 | `remonode.key` | `ValidateRemonodeKeyType` | Key-type specific (`:pk`, `:sk`, `:any`) |
+| `remonode.portal` | `AuthenticatePortalKey` | Portal-to-app auth (validates `X-Portal-Key` header) |
 | `remonode.api_key` | `ValidateRemonodeApiKey` | Legacy (accepts both key types) |
 
 **Usage examples:**
@@ -556,6 +601,9 @@ The package registers two middleware aliases automatically:
 Route::middleware('remonode.key:pk')->group(...);
 Route::middleware('remonode.key:sk')->group(...);
 Route::middleware('remonode.key:any')->group(...);
+
+// Portal-facing routes (for SDK provision endpoint)
+Route::middleware('remonode.portal')->group(...);
 
 // Legacy (both key types)
 Route::middleware('remonode.api_key')->group(...);
