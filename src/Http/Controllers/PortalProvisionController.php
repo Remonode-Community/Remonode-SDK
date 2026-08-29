@@ -228,4 +228,52 @@ class PortalProvisionController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Get raw usage logs for portal sync (portal pulls these periodically).
+     *
+     * GET /api/v1/remonode/portal/usage/logs
+     * Header: X-Portal-Key: {shared_secret}
+     * Query: user_id (required), since (optional ISO datetime), limit (optional, default 500)
+     */
+    public function usageLogs(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer'],
+            'since' => ['nullable', 'string'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:1000'],
+        ]);
+
+        $keys = LocalApiKey::where('user_id', $validated['user_id'])->get();
+        $keyIds = $keys->pluck('id');
+
+        $query = \Remonode\SDK\Models\UsageLog::whereIn('api_key_id', $keyIds)
+            ->orderBy('created_at', 'asc');
+
+        if (! empty($validated['since'])) {
+            $query->where('created_at', '>', $validated['since']);
+        }
+
+        $logs = $query->limit($validated['limit'] ?? 500)->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'key_id' => $keys->firstWhere('id', $log->api_key_id)?->key_id,
+                'method' => $log->method,
+                'path' => $log->path,
+                'status_code' => $log->status_code,
+                'response_time_ms' => $log->response_time_ms,
+                'ip_address' => $log->ip_address,
+                'user_agent' => $log->user_agent,
+                'environment' => $log->environment,
+                'created_at' => $log->created_at->toISOString(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'logs' => $logs,
+                'has_more' => $logs->count() === ($validated['limit'] ?? 500),
+            ],
+        ]);
+    }
 }

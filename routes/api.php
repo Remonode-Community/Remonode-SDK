@@ -32,4 +32,6 @@ Route::middleware('remonode.portal')->group(function () {
         ->name('remonode.portal.keys.revoke');
     Route::get('portal/usage', [PortalProvisionController::class, 'usage'])
         ->name('remonode.portal.usage');
+    Route::get('portal/usage/logs', [PortalProvisionController::class, 'usageLogs'])
+        ->name('remonode.portal.usage.logs');
 });
