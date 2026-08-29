@@ -72,6 +72,16 @@ class ValidateRemonodeApiKey
 
         $request->attributes->set('remonode_api_key', $apiKey);
 
+        // Set the authenticated user from the API key's user_id
+        // so $request->user() works in controllers without Sanctum
+        if ($apiKey->user_id) {
+            $userModel = config('remonode.user_model', App\Models\User::class);
+            $user = $userModel::find($apiKey->user_id);
+            if ($user) {
+                auth()->setUser($user);
+            }
+        }
+
         return $next($request);
     }
 
