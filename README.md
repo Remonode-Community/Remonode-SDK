@@ -97,12 +97,12 @@ If you want Remonode to track your app's keys and billing:
 3. Add the portal credentials to your `.env`:
 
 ```env
+# Portal connection (optional)
 REMONODE_PORTAL_URL=https://remonode.ng
-REMONODE_PORTAL_KEY=your-portal-secret-key
-REMONODE_APP_URL=https://yourapp.com
+REMONODE_PORTAL_KEY=your-shared-secret
 ```
 
-4. Register your app:
+4. Register your app (the portal stores your app's URL from `config('app.url')`):
 
 ```php
 use Remonode\SDK\RemonodeFacade as Remonode;
@@ -126,7 +126,6 @@ $result = Remonode::register(
 When enabled, the Remonode portal can call your app's endpoint to generate API keys on behalf of your users. This allows users to generate keys from the portal UI without leaving the dashboard.
 
 ```env
-REMONODE_APP_URL=https://yourapp.com
 REMONODE_PORTAL_PROVISION_KEYS=true
 ```
 
@@ -561,7 +560,6 @@ Only Remonode-specific features are disabled:
 | `portal_url` | `REMONODE_PORTAL_URL` | `http://localhost:8006` | Remonode portal base URL |
 | `portal_key` | `REMONODE_PORTAL_KEY` | `''` | Shared secret for portal auth |
 | `app_uuid` | `REMONODE_APP_UUID` | `''` | Your app's UUID on Remonode |
-| `app_url` | `REMONODE_APP_URL` | `APP_URL` | Your app's public URL for portal provisioning |
 | `timeout` | `REMONODE_TIMEOUT` | `15` | HTTP timeout (seconds) |
 | `key_generation.public_prefix` | `REMONODE_PK_PREFIX` | `pk_` | Public key prefix |
 | `key_generation.secret_prefix` | `REMONODE_SK_PREFIX` | `sk_` | Secret key prefix |

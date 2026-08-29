@@ -37,18 +37,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Application URL (for Portal Provisioning)
-    |--------------------------------------------------------------------------
-    |
-    | The publicly accessible URL of your application where the Remonode
-    | portal can call the SDK's provision endpoint to generate keys.
-    | Example: https://yourapp.com
-    |
-    */
-    'app_url' => env('REMONODE_APP_URL', env('APP_URL', '')),
-
-    /*
-    |--------------------------------------------------------------------------
     | HTTP Timeout
     |--------------------------------------------------------------------------
     */

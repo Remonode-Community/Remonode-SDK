@@ -122,7 +122,8 @@ class RemonodeManager
 
         try {
             // Send app URL and portal key so the portal can provision keys back to us
-            $registeredUrl = config('remonode.app_url');
+            // Use APP_URL as the connected app's public URL
+            $registeredUrl = config('app.url');
             $portalKey = config('remonode.portal_key');
 
             return $this->client->registerApplication(
