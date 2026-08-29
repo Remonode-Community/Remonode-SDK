@@ -22,11 +22,20 @@ use Illuminate\Support\Facades\Facade;
  * @see \Remonode\SDK\Services\ApiKeyManager
  * @see \Remonode\SDK\Services\KeyValidator
  * @see \Remonode\SDK\Services\RemonodeManager
+ * @see \Remonode\SDK\Services\WebhookService
  */
 class RemonodeFacade extends Facade
 {
     protected static function getFacadeAccessor(): string
     {
         return 'remonode.keys';
+    }
+
+    /**
+     * Access the webhook service directly.
+     */
+    public static function webhooks(): \Remonode\SDK\Services\WebhookService
+    {
+        return app(\Remonode\SDK\Services\WebhookService::class);
     }
 }

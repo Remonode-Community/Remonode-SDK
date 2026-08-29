@@ -23,6 +23,9 @@ class LocalApiKey extends Model
         'name',
         'status',
         'environment',
+        'scopes',
+        'rate_limit_per_minute',
+        'monthly_quota',
         'remote_id',
         'expires_at',
         'last_used_at',
@@ -37,6 +40,9 @@ class LocalApiKey extends Model
         return [
             'expires_at' => 'datetime',
             'last_used_at' => 'datetime',
+            'scopes' => 'array',
+            'rate_limit_per_minute' => 'integer',
+            'monthly_quota' => 'integer',
         ];
     }
 

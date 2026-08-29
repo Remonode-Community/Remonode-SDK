@@ -31,12 +31,17 @@ class RemonodeServiceProvider extends ServiceProvider
         // Register middleware
         $this->app['router']->aliasMiddleware('remonode.key', \Remonode\SDK\Http\Middleware\ValidateRemonodeKeyType::class);
         $this->app['router']->aliasMiddleware('remonode.portal', \Remonode\SDK\Http\Middleware\AuthenticatePortalKey::class);
+        $this->app['router']->aliasMiddleware('remonode.rate_limit', \Remonode\SDK\Http\Middleware\RateLimitKey::class);
+        $this->app['router']->aliasMiddleware('remonode.track_usage', \Remonode\SDK\Http\Middleware\TrackUsage::class);
+        $this->app['router']->aliasMiddleware('remonode.scope', \Remonode\SDK\Http\Middleware\RequireScope::class);
+        $this->app['router']->aliasMiddleware('remonode.environment', \Remonode\SDK\Http\Middleware\RequireEnvironment::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Remonode\SDK\Commands\TestConnectionCommand::class,
                 \Remonode\SDK\Commands\SyncKeysCommand::class,
                 \Remonode\SDK\Commands\PushKeysToPortalCommand::class,
+                \Remonode\SDK\Commands\ExpireKeysCommand::class,
             ]);
         }
 
@@ -93,5 +98,8 @@ class RemonodeServiceProvider extends ServiceProvider
         });
 
         $this->app->alias(RemonodeManager::class, 'remonode.keys');
+
+        // Webhook service
+        $this->app->singleton(\Remonode\SDK\Services\WebhookService::class);
     }
 }

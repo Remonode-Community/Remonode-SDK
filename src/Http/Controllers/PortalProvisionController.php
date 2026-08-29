@@ -174,4 +174,58 @@ class PortalProvisionController extends Controller
             'message' => 'Key revoked.',
         ]);
     }
+
+    /**
+     * Get usage analytics for a connected app (portal can query this).
+     *
+     * GET /api/v1/remonode/portal/usage
+     * Header: X-Portal-Key: {shared_secret}
+     * Query: user_id, days (optional, default 30)
+     */
+    public function usage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $days = $validated['days'] ?? 30;
+        $from = now()->subDays($days);
+
+        $keys = LocalApiKey::where('user_id', $validated['user_id'])->get();
+        $keyIds = $keys->pluck('id');
+
+        $usageLog = \Remonode\SDK\Models\UsageLog::class;
+
+        $totalCalls = $usageLog::whereIn('api_key_id', $keyIds)
+            ->where('created_at', '>=', $from)
+            ->count();
+
+        $dailyUsage = $usageLog::whereIn('api_key_id', $keyIds)
+            ->where('created_at', '>=', $from)
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as calls')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        $topEndpoints = $usageLog::whereIn('api_key_id', $keyIds)
+            ->where('created_at', '>=', $from)
+            ->selectRaw('path, method, COUNT(*) as calls')
+            ->groupBy('path', 'method')
+            ->orderByDesc('calls')
+            ->limit(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'user_id' => $validated['user_id'],
+                'period' => "{$days}d",
+                'total_calls' => $totalCalls,
+                'active_keys' => $keys->where('status', 'active')->count(),
+                'daily_usage' => $dailyUsage,
+                'top_endpoints' => $topEndpoints,
+            ],
+        ]);
+    }
 }

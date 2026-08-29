@@ -151,6 +151,80 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Rate Limiting
+    |--------------------------------------------------------------------------
+    |
+    | Default per-key rate limit (requests per minute).
+    | Individual keys can override this via rate_limit_per_minute column.
+    |
+    */
+    'rate_limit' => [
+        'enabled' => env('REMONODE_RATE_LIMIT_ENABLED', true),
+        'default_per_minute' => (int) env('REMONODE_RATE_LIMIT_PER_MINUTE', 120),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Usage Tracking
+    |--------------------------------------------------------------------------
+    |
+    | Log every API call per key for analytics and billing.
+    | Set async=true to queue logs (recommended for production).
+    |
+    */
+    'usage_tracking' => [
+        'enabled' => env('REMONODE_USAGE_TRACKING_ENABLED', true),
+        'async' => env('REMONODE_USAGE_TRACKING_ASYNC', true),
+        'queue' => env('REMONODE_USAGE_TRACKING_QUEUE', 'default'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Key Scoping
+    |--------------------------------------------------------------------------
+    |
+    | Available scopes that can be assigned to API keys.
+    | Keys with null scopes have full access (backward compatible).
+    |
+    */
+    'scopes' => [
+        'available' => ['read', 'write', 'admin'],
+        'default' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Environment Isolation
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, sandbox keys can only access sandbox routes and
+    | production keys can only access production routes.
+    |
+    */
+    'environment_isolation' => env('REMONODE_ENVIRONMENT_ISOLATION', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook Configuration
+    |--------------------------------------------------------------------------
+    */
+    'webhook_url' => env('REMONODE_WEBHOOK_URL', ''),
+    'webhook_signature_algo' => env('REMONODE_WEBHOOK_SIGNATURE_ALGO', 'sha512'),
+    'webhook_max_attempts' => (int) env('REMONODE_WEBHOOK_MAX_ATTEMPTS', 5),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Key Expiration
+    |--------------------------------------------------------------------------
+    |
+    | Auto-revoke expired keys via scheduled command.
+    | Add to your Kernel.php: $schedule->command('remonode:expire-keys')->daily();
+    |
+    */
+    'auto_expire_keys' => env('REMONODE_AUTO_EXPIRE_KEYS', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Portal Key Provisioning
     |--------------------------------------------------------------------------
     |
