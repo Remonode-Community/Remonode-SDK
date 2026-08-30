@@ -203,10 +203,11 @@ class PortalProvisionController extends Controller
             $userClass = config('remonode.user_model', 'App\\Models\\User');
             $user = $userClass::where('email', $validated['email'])->first();
             if (! $user) {
+                $daysVal = $validated['days'] ?? 30;
                 return response()->json([
                     'success' => true,
                     'data' => [
-                        'period' => "{$validated['days'] ?? 30}d",
+                        'period' => "{$daysVal}d",
                         'total_calls' => 0,
                         'active_keys' => 0,
                         'daily_usage' => [],
