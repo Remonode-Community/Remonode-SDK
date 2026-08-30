@@ -185,14 +185,42 @@ class PortalProvisionController extends Controller
     public function usage(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'user_id' => ['required', 'integer'],
+            'user_id' => ['nullable', 'integer'],
+            'email' => ['nullable', 'email'],
             'days' => ['nullable', 'integer', 'min:1', 'max:365'],
         ]);
+
+        if (empty($validated['user_id']) && empty($validated['email'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either user_id or email is required.',
+            ], 422);
+        }
+
+        // Resolve user_id from email if needed
+        $userId = $validated['user_id'] ?? null;
+        if (! $userId && ! empty($validated['email'])) {
+            $userClass = config('remonode.user_model', 'App\\Models\\User');
+            $user = $userClass::where('email', $validated['email'])->first();
+            if (! $user) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'period' => "{$validated['days'] ?? 30}d",
+                        'total_calls' => 0,
+                        'active_keys' => 0,
+                        'daily_usage' => [],
+                        'top_endpoints' => [],
+                    ],
+                ]);
+            }
+            $userId = $user->id;
+        }
 
         $days = $validated['days'] ?? 30;
         $from = now()->subDays($days);
 
-        $keys = LocalApiKey::where('user_id', $validated['user_id'])->get();
+        $keys = LocalApiKey::where('user_id', $userId)->get();
         $keyIds = $keys->pluck('id');
 
         $usageLog = \Remonode\SDK\Models\UsageLog::class;
@@ -219,7 +247,7 @@ class PortalProvisionController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'user_id' => $validated['user_id'],
+                'user_id' => $userId,
                 'period' => "{$days}d",
                 'total_calls' => $totalCalls,
                 'active_keys' => $keys->where('status', 'active')->count(),
@@ -239,12 +267,34 @@ class PortalProvisionController extends Controller
     public function usageLogs(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'user_id' => ['required', 'integer'],
+            'user_id' => ['nullable', 'integer'],
+            'email' => ['nullable', 'email'],
             'since' => ['nullable', 'string'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
 
-        $keys = LocalApiKey::where('user_id', $validated['user_id'])->get();
+        if (empty($validated['user_id']) && empty($validated['email'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either user_id or email is required.',
+            ], 422);
+        }
+
+        // Resolve user_id from email if needed
+        $userId = $validated['user_id'] ?? null;
+        if (! $userId && ! empty($validated['email'])) {
+            $userClass = config('remonode.user_model', 'App\\Models\\User');
+            $user = $userClass::where('email', $validated['email'])->first();
+            if (! $user) {
+                return response()->json([
+                    'success' => true,
+                    'data' => ['logs' => [], 'has_more' => false],
+                ]);
+            }
+            $userId = $user->id;
+        }
+
+        $keys = LocalApiKey::where('user_id', $userId)->get();
         $keyIds = $keys->pluck('id');
 
         $query = \Remonode\SDK\Models\UsageLog::whereIn('api_key_id', $keyIds)
