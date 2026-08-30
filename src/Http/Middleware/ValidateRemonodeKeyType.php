@@ -95,7 +95,52 @@ class ValidateRemonodeKeyType
             }
         }
 
-        return $next($request);
+        // Track usage automatically — no need for separate remonode.track_usage middleware
+        // Set flag before $next so TrackUsage middleware skips if present
+        $request->attributes->set('remonode_usage_tracked', true);
+        $startTime = microtime(true);
+        $response = $next($request);
+
+        if (config('remonode.usage_tracking.enabled', true)) {
+            $this->trackUsage($request, $response, $apiKey, $startTime);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Log the API call for analytics and billing.
+     */
+    private function trackUsage(Request $request, mixed $response, $apiKey, float $startTime): void
+    {
+        $responseTimeMs = (int) ((microtime(true) - $startTime) * 1000);
+
+        $logData = [
+            'api_key_id' => $apiKey->id,
+            'user_id' => $apiKey->user_id,
+            'method' => $request->method(),
+            'path' => $request->path(),
+            'route_name' => $request->route()?->getName(),
+            'status_code' => method_exists($response, 'getStatusCode') ? $response->getStatusCode() : null,
+            'response_time_ms' => $responseTimeMs,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'environment' => $apiKey->environment,
+            'scope_used' => $request->attributes->get('remonode_scope_used'),
+            'rate_limited' => $request->attributes->get('remonode_rate_limited', false),
+            'created_at' => now(),
+        ];
+
+        if (config('remonode.usage_tracking.async', true) && class_exists(\Illuminate\Foundation\Dispatchable::class)) {
+            try {
+                \Remonode\SDK\Jobs\LogApiUsage::dispatch($logData)
+                    ->onQueue(config('remonode.usage_tracking.queue', 'default'));
+            } catch (\Exception $e) {
+                \Remonode\SDK\Models\UsageLog::create($logData);
+            }
+        } else {
+            \Remonode\SDK\Models\UsageLog::create($logData);
+        }
     }
 
     private function resolveKey(Request $request, string $keyType): ?string

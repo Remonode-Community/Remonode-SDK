@@ -19,6 +19,11 @@ class TrackUsage
      */
     public function handle(Request $request, Closure $next): mixed
     {
+        // If ValidateRemonodeKeyType already tracked usage, skip
+        if ($request->attributes->has('remonode_usage_tracked')) {
+            return $next($request);
+        }
+
         $startTime = microtime(true);
 
         $response = $next($request);
