@@ -1,15 +1,15 @@
-# Remonode Laravel SDK — How It Works
+# Remonode SDK — How It Works
 
-A complete guide to understanding the Remonode SDK, what it does, and how it connects to the Remonode portal.
+A complete guide to understanding the Remonode Laravel SDK, what it does, and how it connects to the Remonode portal.
 
 ---
 
 ## Table of Contents
 
 - [Part 1: Non-Technical Explanation](#part-1-non-technical-explanation)
-  - [What Is Remonode?](#what-is-remonode)
+  - [What Is the Remonode SDK?](#what-is-the-remonode-sdk)
   - [The Problem It Solves](#the-problem-it-solves)
-  - [How Keys Work](#how-keys-work)
+  - [How API Keys Work](#how-api-keys-work)
   - [What the Portal Does](#what-the-portal-does)
   - [Daily Workflow](#daily-workflow)
 - [Part 2: Technical Explanation](#part-2-technical-explanation)
@@ -21,6 +21,7 @@ A complete guide to understanding the Remonode SDK, what it does, and how it con
   - [Portal Synchronization](#portal-synchronization)
   - [Webhook Delivery](#webhook-delivery)
   - [Rate Limiting & Quotas](#rate-limiting--quotas)
+  - [Artisan Commands](#artisan-commands)
   - [File Structure](#file-structure)
   - [Configuration Reference](#configuration-reference)
 
@@ -28,71 +29,64 @@ A complete guide to understanding the Remonode SDK, what it does, and how it con
 
 ## Part 1: Non-Technical Explanation
 
-### What Is Remonode?
+### What Is the Remonode SDK?
 
-Remonode is a platform for **managing who has access to your API**. Think of it as a security guard that sits at the entrance of your application and checks credentials before letting anyone in.
+The Remonode SDK is a **Laravel package** you install into your PHP application. It gives your app the ability to generate, validate, and manage **API keys** — the digital credentials that allow other software to access your API.
 
-Every app you build needs a way to identify its users. Most apps use email and password. But when one app needs to talk to another app (machine-to-machine), there are no emails or passwords involved. Instead, they use **API keys** — long random strings that act like passwords for software.
-
-Remonode helps you **create, manage, and track** these API keys.
+Think of it like a doorman for your application. When someone tries to access your API, the SDK checks their credentials, makes sure they're allowed in, and writes down who came and what they did.
 
 ### The Problem It Solves
 
-Without Remonode, if you wanted to give someone access to your API, you would need to:
+If you're building an API and want to let other developers or apps use it, you need a way to:
 
-1. Manually generate a random key
-2. Store it in your database
-3. Write code to check if the key is valid on every request
-4. Write separate code to track who used what and when
-5. Build an admin panel to revoke keys, view usage, and manage billing
+1. **Give them a key** — a secure credential they can use to authenticate
+2. **Validate the key** — check if it's real, active, and not expired on every request
+3. **Track usage** — know who called what, when, and how often
+4. **Control access** — limit some users to read-only, others to full access
+5. **Revoke access** — cut off someone immediately when they shouldn't be allowed in
 
-Remonode handles all of this for you through two components:
+Building all of this from scratch takes weeks. The SDK does it in minutes. You install it, run one command, and you have a full API key system.
 
-| Component | What It Is | Where It Runs |
-|-----------|-----------|---------------|
-| **SDK** | A package you install in your Laravel app | Your app (e.g., FemojV1 on Herd) |
-| **Portal** | A web dashboard for managing keys and viewing analytics | Remonode server (Docker) |
+### How API Keys Work
 
-### How Keys Work
+Every registered application gets two keys:
 
-Remonode uses two types of keys for every registered application:
+| Key Type | Prefix | Purpose | Header |
+|----------|--------|---------|--------|
+| **Public Key** | `pk_` | Read-only access (safe to share) | `X-Public-Key` |
+| **Secret Key** | `sk_` | Full access (keep private) | `X-Api-Key` |
 
-#### Public Key (`pk_...`)
-- Used for **read-only** endpoints (e.g., fetching data)
-- Sent in the `X-Public-Key` header
-- Safe to expose in client-side code or URLs
-- Example: `pk_2GxGtLpvw4zVPN4yFUU9KjvEzSP398CR`
+**Example:**
+- Public: `pk_2GxGtLpvw4zVPN4yFUU9KjvEzSP398CR`
+- Secret: `sk_KMN6IkrEdWEmnY`
 
-#### Secret Key (`sk_...`)
-- Used for **write** endpoints (e.g., creating or deleting data)
-- Sent in the `X-Api-Key` header or as a Bearer token
-- **Never** share this — it's like a root password
-- Example: `sk_KMN6IkrEdWEmnY`
+The public key is like a library card — it lets you read. The secret key is like a master key — it lets you read, write, and delete.
 
-Both keys are generated **locally inside your app**. Remonode never sees the raw key — it only receives a sync record so it knows the key exists. This is a deliberate security design: even if the Remonode portal is compromised, your actual keys are safe.
+**Security design**: The SDK generates keys locally inside your app. It hashes the secret key immediately after generation. The plaintext is shown to you exactly once, then it's gone. The Remonode portal never receives the raw key — only a record that a key exists.
 
 ### What the Portal Does
 
-The Remonode portal (running at `remonode.ng` or in Docker) provides:
+The Remonode portal is a **web dashboard** where you can see all your apps and their API activity in one place. It connects to your app through the SDK.
 
-- **Dashboard** — See all your connected apps and their API usage at a glance
-- **Key Management** — View which keys are active, when they were last used, and revoke them
-- **Usage Analytics** — See how many API calls were made, by which keys, to which endpoints
-- **Connected Apps** — Register and manage multiple applications from one place
-- **Billing & Plans** — Set usage quotas and monitor consumption per app
-- **Webhooks** — Get notified in real-time when certain events happen (key created, quota exceeded, etc.)
+With the portal you can:
+
+- **See all connected apps** on a single dashboard
+- **View usage analytics** — how many calls per day, which endpoints are popular
+- **Manage keys** — see when each key was last used, revoke keys instantly
+- **Set quotas** — limit how many API calls each app can make per month
+- **Get webhooks** — receive real-time notifications when something happens
+
+The portal is optional. The SDK works perfectly on its own. The portal just adds a centralized view across multiple apps.
 
 ### Daily Workflow
 
-Here is what a typical day looks like for a developer using Remonode:
+**Morning**: You open the portal. Yesterday, your app served 2,847 API calls. Everything looks normal.
 
-**Morning**: You log into the Remonode portal. The dashboard shows all your apps. FemojV1 had 2,847 API calls yesterday. Everything looks normal.
+**New integration**: A third-party wants to use your API. You tell them to install the SDK, run `php artisan remonode:register-app`, and their keys are automatically synced to your portal. You can now see them under "Connected Apps."
 
-**Adding a new integration**: A third-party wants to access your phone number API. You give them your portal URL. They install the SDK in their app, run a register command, and their keys are automatically synced to your portal. You can see them under "Connected Apps."
+**Monitoring**: Usage data flows from your app to the portal in real-time. You see charts of calls per minute, which endpoints are most used, and which keys are active.
 
-**Monitoring**: Throughout the day, usage data flows from each connected app to the portal. You can see real-time charts showing calls per minute, which endpoints are most popular, and which keys are making the most requests.
-
-**Revoking access**: A partner's contract expires. You click "Revoke" next to their key in the portal. Their API access is immediately blocked.
+**Revoking access**: A partner's contract ends. You click "Revoke" in the portal. Their API key stops working immediately.
 
 ---
 
@@ -102,27 +96,51 @@ Here is what a typical day looks like for a developer using Remonode:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    REMONODE ECOSYSTEM                │
+│                  YOUR APPLICATION                    │
 │                                                     │
-│  ┌──────────────┐         ┌──────────────────────┐  │
-│  │  Your App    │         │  Remonode Portal      │  │
-│  │  (FemojV1)   │         │  (Docker)             │  │
-│  │              │         │                       │  │
-│  │  ┌────────┐  │  sync   │  ┌─────────────────┐  │  │
-│  │  │ SDK    │──┼────────►│  │ Connected Apps  │  │  │
-│  │  │ v1.2.6 │  │         │  │ Usage Logs      │  │  │
-│  │  └────────┘  │         │  │ Webhooks        │  │  │
-│  │      │       │         │  └─────────────────┘  │  │
-│  │      ▼       │         └──────────────────────┘  │
-│  │  ┌────────┐  │                                    │
-│  │  │ Local  │  │         ┌──────────────────────┐  │
-│  │  │ SQLite │  │         │  Third-Party App      │  │
-│  │  └────────┘  │         │  (Another Laravel app)│  │
-│  └──────────────┘         └──────────────────────┘  │
+│  ┌──────────────────────────────────────────────┐   │
+│  │  Remonode SDK (composer package)             │   │
+│  │                                              │   │
+│  │  ┌────────────┐  ┌──────────────────────┐    │   │
+│  │  │ Key        │  │ Key                  │    │   │
+│  │  │ Generation │  │ Validation           │    │   │
+│  │  └────────────┘  └──────────────────────┘    │   │
+│  │  ┌────────────┐  ┌──────────────────────┐    │   │
+│  │  │ Middleware  │  │ Usage Tracking       │    │   │
+│  │  └────────────┘  └──────────────────────┘    │   │
+│  │  ┌────────────┐  ┌──────────────────────┐    │   │
+│  │  │ Portal     │  │ Webhook              │    │   │
+│  │  │ Sync       │  │ Delivery             │    │   │
+│  │  └────────────┘  └──────────────────────┘    │   │
+│  └──────────────────────────────────────────────┘   │
+│                      │                              │
+│                      ▼                              │
+│  ┌──────────────────────────────┐                  │
+│  │  Local SQLite/MySQL DB       │                  │
+│  │  remonode_api_keys           │                  │
+│  │  remonode_api_usage_logs     │                  │
+│  │  remonode_webhook_deliveries │                  │
+│  └──────────────────────────────┘                  │
+└─────────────────────────────────────────────────────┘
+                       │
+            sync + pull │
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│                  REMONODE PORTAL                     │
+│                  (Optional)                          │
+│                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │
+│  │ Dashboard    │  │ Usage        │  │ Webhooks  │ │
+│  │              │  │ Analytics    │  │           │ │
+│  └──────────────┘  └──────────────┘  └───────────┘ │
+│  ┌──────────────┐  ┌──────────────┐                │
+│  │ Connected    │  │ Billing &    │                │
+│  │ Apps         │  │ Plans        │                │
+│  └──────────────┘  └──────────────┘                │
 └─────────────────────────────────────────────────────┘
 ```
 
-**Key principle**: Your app generates keys locally. The Remonode portal only receives metadata (timestamps, key IDs, usage counts) — never the actual key material.
+**Key principle**: Your app generates keys locally. The portal only receives metadata (timestamps, key IDs, usage counts) — never the actual key material. Even if the portal is compromised, your keys remain safe.
 
 ### Key Generation & Storage
 
@@ -134,257 +152,301 @@ When you run `php artisan remonode:generate-key`, the SDK:
 
 2. **Stores** them in the `remonode_api_keys` table:
    ```
-   id: 1
-   key_id: sk_KMN6IkrEdWEmnY          (public identifier)
-   public_key: pk_2GxGtLpvw4zVPN4yFUU9KjvEzSP398CR
-   secret_prefix: KMN6IkrEdW            (first 12 chars, for fast lookup)
-   secret_hash: sha256(sk_...)          (hashed — original is gone)
-   status: active
-   user_id: 1
-   scopes: ["phone-numbers", "payments"]
-   rate_limit: 1000
-   environment: production
+   id:              1
+   key_id:          sk_KMN6IkrEdWEmnY           (public identifier)
+   public_key:      pk_2GxGtLpvw4zVPN4yFUU9KjvEzSP398CR
+   secret_prefix:   KMN6IkrEdW                   (first 12 chars, for fast DB lookup)
+   secret_hash:     sha256(sk_...)               (one-way hash — plaintext is gone)
+   status:          active
+   user_id:         1
+   scopes:          ["phone-numbers", "payments"]
+   rate_limit:      1000
+   environment:     production
    ```
 
 3. **Displays** the secret key exactly **once**. After that, it's hashed and the plaintext is gone forever.
 
-4. **Optionally syncs** to the Remonode portal (via `remonode:push-keys` or auto-sync).
+4. **Optionally syncs** to the Remonode portal via `remonode:push-keys`.
 
 ### Key Validation Flow
 
-When an API request arrives with an API key:
+When an API request arrives with an API key, here is what happens inside the SDK:
 
 ```
-Request with X-Public-Key: pk_2GxGtLpvw4zVPN4yFUU9KjvEzSP398CR
+Request arrives:
+  X-Public-Key: pk_2GxGtLpvw4zVPN4yFUU9KjvEzSP398CR
          │
          ▼
-┌─────────────────────────┐
-│  ValidateRemonodeKeyType │  (middleware)
-│  middleware               │
-└────────────┬────────────┘
+┌──────────────────────────────────┐
+│  ValidateRemonodeKeyType          │  ← middleware
+│  (src/Http/Middleware/)           │
+└────────────┬─────────────────────┘
              │
              ▼
-┌─────────────────────────┐
-│  KeyValidator::validate()│
-│                          │
-│  1. Check cache (SHA-256 │
-│     hash of raw key)     │
-│     └── HIT → return     │
-│                          │
-│  2. Lookup by prefix or  │
-│     direct match         │
-│     └── PK: WHERE        │
-│         public_key = ?   │
-│     └── SK: WHERE        │
-│         secret_prefix = ?│
-│         + hash_equals()  │
-│                          │
-│  3. Check status=active  │
-│     and not expired      │
-│                          │
-│  4. Cache for 60s        │
-└────────────┬────────────┘
+┌──────────────────────────────────┐
+│  KeyValidator::validate()         │  ← src/Services/KeyValidator.php
+│                                   │
+│  Step 1: Check cache              │
+│    cache_key = sha256(raw_key)    │
+│    if found → return cached model │
+│                                   │
+│  Step 2: Database lookup          │
+│    PK → WHERE public_key = ?      │
+│    SK → WHERE secret_prefix = ?   │
+│         + hash_equals() compare   │
+│                                   │
+│  Step 3: Verify                   │
+│    status = 'active'?             │
+│    expires_at is null or future?  │
+│                                   │
+│  Step 4: Cache for 60 seconds     │
+│    Cache::put(key, model, 60s)    │
+└────────────┬─────────────────────┘
              │
              ▼
-┌─────────────────────────┐
-│  Track Usage (sync)      │
-│                          │
-│  INSERT INTO             │
-│  remonode_api_usage_logs │
-│  (api_key_id, method,    │
-│   path, status_code,     │
-│   response_time_ms, ...) │
-└─────────────────────────┘
+┌──────────────────────────────────┐
+│  Track Usage (built-in)           │
+│                                   │
+│  INSERT INTO remonode_api_usage_  │
+│  logs                             │
+│  (api_key_id, user_id, method,    │
+│   path, status_code,              │
+│   response_time_ms, ip_address,   │
+│   user_agent, environment, ...)   │
+└──────────────────────────────────┘
 ```
 
 ### Middleware System
 
-The SDK registers 6 middleware aliases:
+The SDK registers 6 middleware aliases that you apply to your routes:
 
 | Alias | Class | Purpose |
 |-------|-------|---------|
-| `remonode.key` | `ValidateRemonodeKeyType` | Validate API key + track usage (default) |
+| `remonode.key` | `ValidateRemonodeKeyType` | Validate API key + track usage |
+| `remonode.key:pk` | (same, with `pk` param) | Public keys only |
+| `remonode.key:sk` | (same, with `sk` param) | Secret keys only |
 | `remonode.portal` | `AuthenticatePortalKey` | Authenticate portal sync requests |
 | `remonode.rate_limit` | `RateLimitKey` | Rate limit by key |
-| `remonode.track_usage` | `TrackUsage` | Standalone usage tracking (no longer needed) |
-| `remonode.scope` | `RequireScope` | Require specific scopes on a key |
+| `remonode.scope` | `RequireScope` | Require specific scopes |
 | `remonode.environment` | `RequireEnvironment` | Restrict to prod/staging/dev |
 
-**Route usage:**
+**Route examples:**
 
 ```php
-// Only public keys (pk_*) allowed
+// Only public keys (pk_*) — for read endpoints
 Route::middleware('remonode.key:pk')->group(function () {
     Route::get('/data', [Controller::class, 'index']);
 });
 
-// Only secret keys (sk_*) allowed
+// Only secret keys (sk_*) — for write endpoints
 Route::middleware('remonode.key:sk')->group(function () {
     Route::post('/data', [Controller::class, 'store']);
+    Route::delete('/data/{id}', [Controller::class, 'destroy']);
 });
 
 // Both key types allowed (default)
 Route::middleware('remonode.key')->group(function () {
-    Route::get('/data', [Controller::class, 'show']);
+    Route::get('/data/{id}', [Controller::class, 'show']);
+});
+
+// With rate limiting and scope enforcement
+Route::middleware(['remonode.key:sk', 'remonode.rate_limit', 'remonode.scope:payments'])->group(function () {
+    Route::post('/payments', [PaymentController::class, 'charge']);
 });
 ```
 
 ### Usage Tracking
 
-Usage tracking is built into the `ValidateRemonodeKeyType` middleware. Every validated API call is logged automatically.
+Usage tracking is **built into** the `remonode.key` middleware. Every validated API call is logged automatically — no extra middleware needed.
 
-**What gets logged:**
-- `api_key_id` — Which key was used
-- `user_id` — Which user owns the key
-- `method` — HTTP method (GET, POST, etc.)
-- `path` — Request path (`api/v1/phone-numbers/info/countries`)
-- `status_code` — Response status (200, 404, 500, etc.)
-- `response_time_ms` — How long the request took
-- `ip_address` — Client IP
-- `user_agent` — Client software
-- `environment` — production/staging/development
-- `scope_used` — Which scope was exercised (if scoped)
-- `rate_limited` — Whether the request was rate-limited
+**What gets logged per request:**
+
+| Field | Description |
+|-------|-------------|
+| `api_key_id` | Which key was used |
+| `user_id` | Which user owns the key |
+| `method` | HTTP method (GET, POST, DELETE) |
+| `path` | Request path (e.g., `api/v1/phone-numbers/info/countries`) |
+| `status_code` | Response status (200, 404, 500) |
+| `response_time_ms` | How long the request took in milliseconds |
+| `ip_address` | Client's IP address |
+| `user_agent` | Client software (browser, Postman, curl, etc.) |
+| `environment` | production, staging, or development |
+| `scope_used` | Which scope was exercised (if scoped) |
+| `rate_limited` | Whether the request was rate-limited |
 
 **Sync vs Async:**
-- **Sync** (default): Usage is written to the database immediately on every request. No queue worker needed. Reliable.
-- **Async**: Usage is dispatched to a queue job. Requires a running queue worker (`php artisan queue:work`). Faster response times but usage may be delayed or lost if the queue is down.
+
+| Mode | Default | Requires | Reliability |
+|------|---------|----------|-------------|
+| **Sync** | Yes | Nothing extra | High — written immediately |
+| **Async** | No | Queue worker running | Medium — may be delayed or lost |
 
 Configure in `config/remonode.php`:
 ```php
 'usage_tracking' => [
     'enabled' => true,
-    'async' => false,  // true requires queue worker
+    'async' => false,   // false = sync (recommended)
     'queue' => 'default',
 ],
 ```
 
 ### Portal Synchronization
 
-The portal needs usage data from your app to display analytics. There are two sync mechanisms:
+The SDK connects to the Remonode portal through two mechanisms:
 
-#### 1. Push Keys (One-Time)
+#### 1. Push Keys (One-Time Setup)
 
-Register your app with the portal, then push your keys:
+After registering your app, push key metadata to the portal:
 
 ```bash
 php artisan remonode:push-keys
 ```
 
-This sends key metadata (key_id, public_key, status, user_id) to the portal. The portal stores this as a "Connected App."
+This sends key IDs, public keys, statuses, and user IDs to the portal. The portal stores this as a "Connected App."
+
+**What gets pushed:** key_id, public_key, status, user_id, scopes, environment
+**What never leaves your server:** the raw secret key
 
 #### 2. Pull Usage (Ongoing)
 
 The portal's `PullUsageService` calls your app's `/portal/usage/logs` endpoint to fetch usage data.
 
-**Flow:**
 ```
-Portal Dashboard → PullUsageService → HTTP GET /portal/usage/logs
-                                            │
-                                            ▼
-                                    FemojV1 /portal/usage/logs
-                                    (SDK endpoint, authenticated
-                                     by portal shared secret)
-                                            │
-                                            ▼
-                                    Returns raw usage_logs rows
-                                    with key_id mapping
-                                            │
-                                            ▼
-                                    Portal stores in its own
-                                    usage_logs table, mapped to
-                                    its own api_key_id
+Portal Dashboard
+    │
+    ▼
+PullUsageService (portal server)
+    │
+    │  HTTP GET /portal/usage/logs
+    │  Header: X-Portal-Secret: <shared_secret>
+    │
+    ▼
+Your App's /portal/usage/logs endpoint (SDK route)
+    │
+    │  Validates shared_secret
+    │  Queries remonode_api_usage_logs
+    │  Returns raw logs with key_id mapping
+    │
+    ▼
+Portal stores in its own usage_logs table
+    │
+    ▼
+Dashboard displays analytics
 ```
 
-**Portal endpoints (on your app):**
+**Portal API endpoints served by the SDK:**
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/portal/provision` | POST | Portal registers your app |
-| `/portal/usage` | GET | Get usage summary for a user |
-| `/portal/usage/logs` | GET | Get raw usage logs (for portal sync) |
+| `/portal/usage` | GET | Usage summary for a specific user |
+| `/portal/usage/logs` | GET | Raw usage logs for portal sync |
 
-**Authentication:** Portal requests include a `shared_secret` header. The SDK validates this against `REMONODE_PORTAL_SHARED_SECRET` in your `.env`.
+**Authentication**: All portal requests must include a `shared_secret` header. The SDK validates this against the `REMONODE_PORTAL_SHARED_SECRET` value in your `.env`.
 
 ### Webhook Delivery
 
-The portal can send webhooks to your app when events occur:
+The portal can send webhooks to your app when events occur (key revoked, quota exceeded, etc.):
 
 ```
-Portal event (key revoked, quota exceeded)
+Portal event occurs
     │
     ▼
-WebhookDelivery::dispatch(url, payload, headers)
+WebhookDelivery job dispatched
+    │
+    │  HTTP POST to your webhook URL
+    │  Payload: { event: "key.revoked", data: {...} }
+    │
+    ├── 2xx response → status = 'delivered'
+    ├── non-2xx → status = 'failed'
+    └── timeout → status = 'timeout'
     │
     ▼
-HTTP POST to your app's webhook endpoint
-    │
-    ├── Success (2xx) → status = 'delivered'
-    ├── Failure (non-2xx) → status = 'failed'
-    └── Timeout → status = 'timeout'
+Retried up to 3 times with exponential backoff
     │
     ▼
-Up to 3 retries with exponential backoff
+Final status recorded in remonode_webhook_deliveries table
 ```
 
 ### Rate Limiting & Quotas
 
 The SDK supports two levels of rate limiting:
 
-**Per-key rate limiting** (via middleware):
+**Per-key rate limiting** (local):
+
 ```php
+// Apply rate_limit middleware to routes
 Route::middleware(['remonode.key:sk', 'remonode.rate_limit'])->group(function () {
-    // Rate limited to key's configured limit
+    Route::post('/payments', [PaymentController::class, 'charge']);
 });
 ```
 
-**Global quota enforcement** (via portal):
+Configure in `config/remonode.php`:
 ```php
-// In config/remonode.php
-'quota_enforcement' => true,
+'rate_limiting' => [
+    'enabled' => true,
+    'default_limit' => 1000,      // requests per window
+    'window_minutes' => 60,       // time window
+],
 ```
 
-When enabled, the middleware checks the portal's `/api/v1/connected-app/status` endpoint to verify the app hasn't exceeded its monthly quota.
+**Global quota enforcement** (via portal):
+
+When `quota_enforcement` is enabled, the middleware checks the portal to verify the app hasn't exceeded its monthly quota.
+
+### Artisan Commands
+
+| Command | Purpose |
+|---------|---------|
+| `php artisan remonode:generate-key` | Generate a new API key pair |
+| `php artisan remonode:push-keys` | Sync keys to the Remonode portal |
+| `php artisan remonode:register-app` | Register your app with the portal |
 
 ### File Structure
 
 ```
 remonode-sdk/
 ├── config/
-│   └── remonode.php              # All configuration
+│   └── remonode.php                      # All configuration
 ├── database/
-│   └── migrations/               # 5 migration files
+│   └── migrations/
+│       ├── create_remonode_api_keys_table.php
+│       ├── add_scopes_and_rate_limits_to_remonode_api_keys_table.php
+│       ├── create_remonode_api_usage_logs_table.php
+│       ├── create_remonode_webhook_deliveries_table.php
+│       └── add_unique_index_to_usage_logs_table.php
 ├── src/
-│   ├── Console/
-│   │   └── Commands/
-│   │       ├── GenerateKeyCommand.php      # remonode:generate-key
-│   │       ├── PushKeysCommand.php         # remonode:push-keys
-│   │       └── RegisterAppCommand.php      # remonode:register-app
+│   ├── Console/Commands/
+│   │   ├── GenerateKeyCommand.php         # remonode:generate-key
+│   │   ├── PushKeysCommand.php            # remonode:push-keys
+│   │   └── RegisterAppCommand.php         # remonode:register-app
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   └── PortalProvisionController.php  # Portal API endpoints
+│   │   │   └── PortalProvisionController.php  # /portal/* endpoints
 │   │   └── Middleware/
-│   │       ├── ValidateRemonodeKeyType.php  # Main middleware
-│   │       ├── AuthenticatePortalKey.php    # Portal auth
-│   │       ├── RateLimitKey.php             # Rate limiting
-│   │       ├── RequireScope.php             # Scope enforcement
-│   │       ├── RequireEnvironment.php       # Env restrictions
-│   │       └── TrackUsage.php               # Standalone tracking
+│   │       ├── ValidateRemonodeKeyType.php    # Main validation + tracking
+│   │       ├── AuthenticatePortalKey.php      # Portal auth
+│   │       ├── RateLimitKey.php               # Per-key rate limiting
+│   │       ├── RequireScope.php               # Scope enforcement
+│   │       ├── RequireEnvironment.php         # Environment restrictions
+│   │       └── TrackUsage.php                 # Standalone tracking (legacy)
 │   ├── Jobs/
-│   │   └── LogApiUsage.php                  # Async usage logging
+│   │   └── LogApiUsage.php                    # Async usage logging
 │   ├── Models/
-│   │   ├── LocalApiKey.php                  # Key model
-│   │   ├── UsageLog.php                     # Usage log model
-│   │   └── WebhookDelivery.php              # Webhook model
+│   │   ├── LocalApiKey.php                    # Key model
+│   │   ├── UsageLog.php                       # Usage log model
+│   │   └── WebhookDelivery.php                # Webhook model
 │   ├── Services/
-│   │   ├── KeyGenerationService.php         # Key generation
-│   │   ├── KeyValidator.php                 # Key validation
-│   │   └── PortalSyncService.php            # Portal sync
-│   ├── RemonodeFacade.php                   # Facade
-│   ├── RemonodeManager.php                  # Main manager
-│   └── RemonodeServiceProvider.php          # Service provider
+│   │   ├── KeyGenerationService.php           # Key generation logic
+│   │   ├── KeyValidator.php                   # Key validation logic
+│   │   └── PortalSyncService.php              # Portal sync logic
+│   ├── RemonodeFacade.php                     # Facade (Remonode::)
+│   ├── RemonodeManager.php                    # Main manager class
+│   └── RemonodeServiceProvider.php            # Registers everything
 ├── docs/
-│   └── how-it-works.md                      # This file
+│   └── how-it-works.md                        # This file
+├── tests/                                     # PHPUnit tests
 └── composer.json
 ```
 
@@ -394,18 +456,18 @@ All configuration lives in `config/remonode.php`:
 
 ```php
 return [
-    // Portal connection
+    // Portal connection (optional — SDK works without it)
     'portal_url' => env('REMONODE_PORTAL_URL'),
     'portal_key' => env('REMONODE_PORTAL_KEY'),
     'portal_shared_secret' => env('REMONODE_PORTAL_SHARED_SECRET'),
 
-    // User model (for linking keys to users)
+    // User model (links keys to your app's users)
     'user_model' => env('REMONODE_USER_MODEL', App\Models\User::class),
 
     // Key enforcement
-    'enforcement' => true,          // Set false to disable key checks
-    'cache_enabled' => true,        // Cache validated keys (recommended)
-    'cache_ttl' => 60,              // Cache duration in seconds
+    'enforcement' => true,          // false = disable all key checks
+    'cache_enabled' => true,        // cache validated keys (recommended)
+    'cache_ttl' => 60,              // cache duration in seconds
 
     // Usage tracking
     'usage_tracking' => [
@@ -416,12 +478,12 @@ return [
 
     // Rate limiting
     'rate_limiting' => [
-        'enabled' => false,         // Enable per-key rate limiting
+        'enabled' => false,
         'default_limit' => 1000,
         'window_minutes' => 60,
     ],
 
-    // Scopes (fine-grained permissions)
+    // Scopes (fine-grained permissions per key)
     'scopes' => [
         'phone-numbers',
         'payments',
@@ -433,9 +495,12 @@ return [
 **Environment variables (`.env`):**
 
 ```env
+# Portal connection (optional)
 REMONODE_PORTAL_URL=https://remonode.ng
 REMONODE_PORTAL_KEY=your-portal-api-key
 REMONODE_PORTAL_SHARED_SECRET=your-shared-secret
+
+# User model (defaults to App\Models\User)
 REMONODE_USER_MODEL=App\Models\User
 ```
 
@@ -445,12 +510,13 @@ REMONODE_USER_MODEL=App\Models\User
 
 | Concept | What It Means |
 |---------|---------------|
-| **SDK** | Package installed in your Laravel app |
-| **Portal** | Web dashboard for managing all connected apps |
-| **Keys** | Generated locally, never leave your app |
-| **Sync** | Key metadata sent to portal, not the raw keys |
-| **Usage** | Every API call logged automatically |
+| **SDK** | Laravel package you install in your app |
+| **Portal** | Optional web dashboard for centralized management |
+| **Public Key (`pk_`)** | Read-only access, safe to share |
+| **Secret Key (`sk_`)** | Full access, keep private |
 | **Middleware** | Applied to routes to validate + track |
-| **Webhooks** | Portal notifies your app of events |
+| **Usage Tracking** | Logged automatically on every validated request |
+| **Sync** | Key metadata sent to portal, raw keys never leave your server |
+| **Webhooks** | Portal notifies your app of events in real-time |
 
-The SDK is **decoupled** — it works independently of the portal. If the portal is down, your app still validates keys and tracks usage locally. The portal is an optional overlay for centralized management.
+The SDK is **self-contained**. It works independently of the portal. If the portal is offline, your app still validates keys and tracks everything locally. The portal is an optional layer for viewing analytics across multiple apps.
