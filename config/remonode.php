@@ -174,7 +174,7 @@ return [
     */
     'usage_tracking' => [
         'enabled' => env('REMONODE_USAGE_TRACKING_ENABLED', true),
-        'async' => env('REMONODE_USAGE_TRACKING_ASYNC', true),
+        'async' => env('REMONODE_USAGE_TRACKING_ASYNC', false),
         'queue' => env('REMONODE_USAGE_TRACKING_QUEUE', 'default'),
     ],
 
